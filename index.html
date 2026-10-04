@@ -37,6 +37,16 @@ body.nomap .windy{display:none}
 .stat.alert{border-left-color:#ff7a45}
 .max{font-size:15px;color:var(--mute)}
 .max b{color:var(--sand);font:600 22px 'Barlow Condensed','Arial Narrow',sans-serif}
+.meas{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.mhead{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--mute)}
+.dot{width:9px;height:9px;border-radius:50%;background:#55657a}
+.dot.on{background:#6cc28a;box-shadow:0 0 6px #6cc28a}
+.mrow{display:flex;align-items:center;gap:10px;margin-top:2px}
+.mrow b{font:700 50px/1 'Barlow Condensed','Arial Narrow',sans-serif}
+.mrow small{font:600 20px 'Barlow Condensed','Arial Narrow',sans-serif;color:var(--mute)}
+.msub{font-size:15px;color:var(--mute)}
+.msub b{color:var(--sand);font:600 20px 'Barlow Condensed','Arial Narrow',sans-serif}
+.fclab{font-size:13px;color:var(--mute);margin-top:4px}
 .windy{position:relative;min-height:0}
 .windy iframe{width:100%;height:100%;border:0;display:block}
 .ov{position:absolute;top:8px;left:8px;background:rgba(10,31,58,.85)}
@@ -71,7 +81,7 @@ footer{background:var(--navy);border-top:1px solid var(--line)}
 </header>
 
 <main>
-  <section class="now" id="now"><div class="msg" data-i="load"></div></section>
+  <section class="now"><div class="meas" id="meas"></div><div id="fc"><div class="msg" data-i="load"></div></div></section>
   <section class="windy">
     <iframe id="windy" title="Windy" loading="lazy"></iframe>
     <div class="seg ov" id="ov">
@@ -99,14 +109,14 @@ const T={
       max12:"Rafale max sur 12 h :",at:"à",upd:"Mis à jour",off:"Hors ligne · données de",
       none:"Aucune donnée. Vérifiez le Wi-Fi du port.",load:"Chargement…",
       rising:"en hausse",falling:"en baisse",steady:"stable",fast:"chute rapide",
-      wind:"Vent",waves:"Vagues",kn:"nds",
+      wind:"Vent",waves:"Vagues",kn:"nds",meas:"Vent mesuré à bord",gust10:"rafale 10 min",vsfc:"écart prévision",skoff:"Signal K non connecté",fcLab:"Prévision AROME",
       src:"Vent, pression : Météo-France AROME puis ARPEGE (Open-Meteo) · Mer : Open-Meteo Marine · Carte : Windy ECMWF",
       card:["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"],loc:"fr-FR"},
   en:{now:"Now",gust:"gusts",sea:"Sea",press:"Pressure",air:"Air",rain:"Rain 3 h",
       max12:"Max gust next 12 h:",at:"at",upd:"Updated",off:"Offline · data from",
       none:"No data. Check the marina Wi-Fi.",load:"Loading…",
       rising:"rising",falling:"falling",steady:"steady",fast:"falling fast",
-      wind:"Wind",waves:"Waves",kn:"kn",
+      wind:"Wind",waves:"Waves",kn:"kn",meas:"Measured on board",gust10:"10-min gust",vsfc:"vs forecast",skoff:"Signal K not connected",fcLab:"AROME forecast",
       src:"Wind, pressure: Météo-France AROME then ARPEGE (Open-Meteo) · Sea: Open-Meteo Marine · Map: Windy ECMWF",
       card:["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"],loc:"en-GB"}
 };
@@ -118,7 +128,9 @@ const qs=new URLSearchParams(location.search);
 const autoBase=()=>{const m=new Date().getMonth()+1;return (m>=6&&m<=9)?'capte':'bonif'};
 let base=BASES[qs.get('base')]?qs.get('base'):autoBase();
 let lang=ls.get('vf_lang')||'fr';
-let overlay='wind', data=null, offline=false;
+let overlay='wind', data=null, offline=false, fcNow=null;
+const SK_HOST=qs.get('sk')||'localhost:3000';
+const sk={aws:null,awa:null,tws:null,twd:null,twm:null,hdg:null,t:0,hist:[]};
 if(qs.get('map')==='0') document.body.classList.add('nomap');
 
 /* ===== Utilitaires ===== */
@@ -165,7 +177,7 @@ async function load(){
 /* ===== Affichage ===== */
 function render(){
   const L=T[lang];
-  if(!data||!data.f){$('now').innerHTML=`<div class="msg">${L.none}</div>`;$('strip').innerHTML='';$('upd').textContent='';return}
+  if(!data||!data.f){$('fc').innerHTML=`<div class="msg">${L.none}</div>`;$('strip').innerHTML='';$('upd').textContent='';return}
   const h=data.f.hourly, W={};
   if(data.m&&data.m.hourly)data.m.hourly.time.forEach((t,i)=>W[t]={h:data.m.hourly.wave_height[i],d:data.m.hourly.wave_direction[i],p:data.m.hourly.wave_period[i]});
   const nk=nowKey();let i=h.time.findIndex(t=>t>=nk);if(i<0)i=h.time.length-1;
@@ -178,11 +190,12 @@ function render(){
   let mx=0,mt=i;for(let k=i;k<=i+12&&k<h.time.length;k++)if(h.wind_gusts_10m[k]>mx){mx=h.wind_gusts_10m[k];mt=k}
   const sea=W[h.time[i]];
 
-  $('now').innerHTML=`
+  fcNow={ws,wd};
+  $('fc').innerHTML=`
     <div class="dial">${rose(wd,col)}
       <div><div class="big" style="color:${col}">${r0(ws)}<small> ${L.kn}</small></div>
       <div class="gust">${L.gust} ${r0(wg)}</div>
-      <div class="dir">${card(wd)} ${r0(wd)}°</div></div></div>
+      <div class="dir">${card(wd)} ${r0(wd)}°</div><div class="fclab">${L.fcLab}</div></div></div>
     <div class="stats">
       <div class="stat"><b>${sea&&sea.h!=null?sea.h.toFixed(1)+' m':'–'}</b><span>${L.sea}${sea&&sea.p?` · ${r0(sea.p)} s ${card(sea.d)}`:''}</span></div>
       <div class="stat${dp<=-3?' alert':''}"><b>${r0(p)} ${tr}</b><span>${L.press} · ${trend}</span></div>
@@ -211,6 +224,56 @@ function render(){
   u.classList.toggle('off',offline);
 }
 
+/* ===== Vent mesuré (Signal K) ===== */
+const KN=1.943844, DEG=180/Math.PI, norm=d=>((d%360)+360)%360;
+function skConnect(){
+  let ws;
+  try{ws=new WebSocket(`ws://${SK_HOST}/signalk/v1/stream?subscribe=none`)}catch(e){setTimeout(skConnect,15000);return}
+  ws.onopen=()=>ws.send(JSON.stringify({context:'vessels.self',subscribe:[
+    'environment.wind.speedApparent','environment.wind.angleApparent',
+    'environment.wind.speedTrue','environment.wind.directionTrue','environment.wind.directionMagnetic',
+    'navigation.headingTrue','navigation.headingMagnetic'].map(path=>({path,period:1000}))}));
+  ws.onmessage=e=>{
+    let m;try{m=JSON.parse(e.data)}catch(_){return}
+    let got=false;
+    (m.updates||[]).forEach(u=>(u.values||[]).forEach(v=>{
+      if(typeof v.value!=='number')return;got=true;
+      switch(v.path){
+        case 'environment.wind.speedApparent':sk.aws=v.value;break;
+        case 'environment.wind.angleApparent':sk.awa=v.value;break;
+        case 'environment.wind.speedTrue':sk.tws=v.value;break;
+        case 'environment.wind.directionTrue':sk.twd=v.value;break;
+        case 'environment.wind.directionMagnetic':sk.twm=v.value;break;
+        case 'navigation.headingTrue':sk.hdg=v.value;break;
+        case 'navigation.headingMagnetic':if(sk.hdg==null)sk.hdg=v.value;break;
+      }}));
+    if(!got)return;
+    sk.t=Date.now();
+    const s=sk.tws??sk.aws;
+    if(s!=null){sk.hist.push([sk.t,s*KN]);while(sk.hist.length&&sk.hist[0][0]<sk.t-600000)sk.hist.shift()}
+    renderSK();
+  };
+  ws.onerror=()=>ws.close();
+  ws.onclose=()=>setTimeout(skConnect,10000);
+}
+let skLast=0;
+function renderSK(){
+  const L=T[lang],now=Date.now();
+  if(now-skLast<900&&now-sk.t<2000)return; skLast=now;     // max 1 affichage/s
+  const live=sk.t&&now-sk.t<30000, s=sk.tws??sk.aws;
+  if(!live||s==null){$('meas').innerHTML=`<div class="mhead"><span class="dot"></span>${L.skoff}</div>`;return}
+  const kn=s*KN, c=wc(kn);
+  let dir=sk.twd??sk.twm;
+  if(dir==null&&sk.hdg!=null&&sk.awa!=null)dir=sk.hdg+sk.awa;   // au ponton : vent réel ≈ cap + angle apparent
+  const dTxt=dir!=null?`${arrow(norm(dir*DEG),c,26)}<span class="dir">${card(norm(dir*DEG))} ${r0(norm(dir*DEG))}°</span>`
+            :(sk.awa!=null?`<span class="dir">AWA ${r0(Math.abs(sk.awa*DEG))}° ${sk.awa<0?(lang==='fr'?'bâbord':'port'):(lang==='fr'?'tribord':'stbd')}</span>`:'');
+  const g=Math.max(...sk.hist.map(h=>h[1]));
+  const diff=fcNow&&fcNow.ws!=null?Math.round(kn-fcNow.ws):null;
+  $('meas').innerHTML=`<div class="mhead"><span class="dot on"></span>${L.meas}</div>
+    <div class="mrow"><b style="color:${c}">${r0(kn)}<small> ${L.kn}</small></b>${dTxt}</div>
+    <div class="msub">${L.gust10} <b style="color:${wc(g)}">${r0(g)}</b>${diff!=null?` · ${L.vsfc} <b>${diff>0?'+':''}${diff}</b> ${L.kn}`:''}</div>`;
+}
+
 function setWindy(){
   if(document.body.classList.contains('nomap'))return;
   const b=BASES[base];
@@ -221,7 +284,7 @@ function applyLang(){
   document.documentElement.lang=lang;
   document.querySelectorAll('[data-i]').forEach(e=>e.textContent=T[lang][e.dataset.i]);
   $('lang').textContent=lang==='fr'?'EN':'FR';
-  render();
+  render();skLast=0;renderSK();
 }
 function setBase(b){
   base=b;document.querySelectorAll('#bases button').forEach(x=>x.classList.toggle('on',x.dataset.b===b));
@@ -242,6 +305,7 @@ setInterval(()=>{const o=parisParts(new Date());  // rechargement complet chaque
   if(o.hour==='04'&&+o.minute<10)location.reload()},10*60e3);
 
 applyLang();setBase(base);
+skConnect();setInterval(()=>{skLast=0;renderSK()},5000);
 </script>
 </body>
 </html>
