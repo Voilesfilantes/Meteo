@@ -46,6 +46,14 @@ body.nomap .windy{display:none}
 .mrow small{font:600 20px 'Barlow Condensed','Arial Narrow',sans-serif;color:var(--mute)}
 .msub{font-size:15px;color:var(--mute)}
 .msub b{color:var(--sand);font:600 20px 'Barlow Condensed','Arial Narrow',sans-serif}
+.toprow{display:flex;gap:8px}
+.toprow .meas{flex:1;min-width:0}
+.wx{flex:0 0 112px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 6px;text-align:center;display:flex;flex-direction:column;justify-content:center}
+.wx .e{font-size:52px;line-height:1.1}
+.wx .l{font-size:14px;margin-top:2px}
+.wx .t{font:600 17px 'Barlow Condensed','Arial Narrow',sans-serif;color:var(--mute)}
+.wx .t b{color:var(--sand)}
+.msub+.msub{margin-top:2px}
 .fclab{font-size:13px;color:var(--mute);margin-top:4px}
 .windy{position:relative;min-height:0}
 .windy iframe{width:100%;height:100%;border:0;display:block}
@@ -81,7 +89,7 @@ footer{background:var(--navy);border-top:1px solid var(--line)}
 </header>
 
 <main>
-  <section class="now"><div class="meas" id="meas"></div><div id="fc"><div class="msg" data-i="load"></div></div></section>
+  <section class="now"><div class="toprow"><div class="meas" id="meas"></div><div class="wx" id="wx"></div></div><div id="fc"><div class="msg" data-i="load"></div></div></section>
   <section class="windy">
     <iframe id="windy" title="Windy" loading="lazy"></iframe>
     <div class="seg ov" id="ov">
@@ -109,14 +117,14 @@ const T={
       max12:"Rafale max sur 12 h :",at:"à",upd:"Mis à jour",off:"Hors ligne · données de",
       none:"Aucune donnée. Vérifiez le Wi-Fi du port.",load:"Chargement…",
       rising:"en hausse",falling:"en baisse",steady:"stable",fast:"chute rapide",
-      wind:"Vent",waves:"Vagues",kn:"nds",meas:"Vent mesuré à bord",gust10:"rafale 10 min",vsfc:"écart prévision",skoff:"Signal K non connecté",fcLab:"Prévision AROME",
+      wind:"Vent",waves:"Vagues",kn:"nds",meas:"Vent mesuré à bord",gust10:"rafale 10 min",vsfc:"écart prévision",skoff:"Signal K non connecté",fcLab:"Prévision AROME",gustFc:"prévue",vsW:"vent",vsG:"rafales",
       src:"Vent, pression : Météo-France AROME puis ARPEGE (Open-Meteo) · Mer : Open-Meteo Marine · Carte : Windy ECMWF",
       card:["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"],loc:"fr-FR"},
   en:{now:"Now",gust:"gusts",sea:"Sea",press:"Pressure",air:"Air",rain:"Rain 3 h",
       max12:"Max gust next 12 h:",at:"at",upd:"Updated",off:"Offline · data from",
       none:"No data. Check the marina Wi-Fi.",load:"Loading…",
       rising:"rising",falling:"falling",steady:"steady",fast:"falling fast",
-      wind:"Wind",waves:"Waves",kn:"kn",meas:"Measured on board",gust10:"10-min gust",vsfc:"vs forecast",skoff:"Signal K not connected",fcLab:"AROME forecast",
+      wind:"Wind",waves:"Waves",kn:"kn",meas:"Measured on board",gust10:"10-min gust",vsfc:"vs forecast",skoff:"Signal K not connected",fcLab:"AROME forecast",gustFc:"forecast",vsW:"wind",vsG:"gusts",
       src:"Wind, pressure: Météo-France AROME then ARPEGE (Open-Meteo) · Sea: Open-Meteo Marine · Map: Windy ECMWF",
       card:["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"],loc:"en-GB"}
 };
@@ -142,6 +150,9 @@ function parisParts(d){const o={};new Intl.DateTimeFormat('en-GB',{timeZone:'Eur
 function nowKey(){const o=parisParts(new Date());return `${o.year}-${o.month}-${o.day}T${o.hour}:00`}
 function hhmm(ts){const o=parisParts(new Date(ts));return `${o.hour}:${o.minute}`}
 function icon(c){if(c==null)return'';if(c===0)return'☀️';if(c<=2)return'🌤️';if(c===3)return'☁️';if(c<=48)return'🌫️';if(c<=67)return'🌧️';if(c<=77)return'🌨️';if(c<=82)return'🌦️';return'⛈️'}
+const WXD={fr:[[0,'Ciel clair'],[1,'Peu nuageux'],[2,'Éclaircies'],[3,'Couvert'],[48,'Brouillard'],[57,'Bruine'],[67,'Pluie'],[77,'Neige'],[82,'Averses'],[99,'Orage']],
+           en:[[0,'Clear'],[1,'Mostly clear'],[2,'Partly cloudy'],[3,'Overcast'],[48,'Fog'],[57,'Drizzle'],[67,'Rain'],[77,'Snow'],[82,'Showers'],[99,'Thunderstorm']]};
+const wxDesc=c=>(WXD[lang].find(x=>c<=x[0])||['',''])[1];
 function arrow(dir,col,s=20){return `<svg width="${s}" height="${s}" viewBox="-10 -10 20 20" style="transform:rotate(${dir+180}deg)"><path d="M0 -9 L6 7 L0 3 L-6 7Z" fill="${col}"/></svg>`}
 function rose(dir,col){
   const L=T[lang].card;let t='';
@@ -177,7 +188,7 @@ async function load(){
 /* ===== Affichage ===== */
 function render(){
   const L=T[lang];
-  if(!data||!data.f){$('fc').innerHTML=`<div class="msg">${L.none}</div>`;$('strip').innerHTML='';$('upd').textContent='';return}
+  if(!data||!data.f){$('fc').innerHTML=`<div class="msg">${L.none}</div>`;$('wx').innerHTML='';$('strip').innerHTML='';$('upd').textContent='';return}
   const h=data.f.hourly, W={};
   if(data.m&&data.m.hourly)data.m.hourly.time.forEach((t,i)=>W[t]={h:data.m.hourly.wave_height[i],d:data.m.hourly.wave_direction[i],p:data.m.hourly.wave_period[i]});
   const nk=nowKey();let i=h.time.findIndex(t=>t>=nk);if(i<0)i=h.time.length-1;
@@ -190,7 +201,15 @@ function render(){
   let mx=0,mt=i;for(let k=i;k<=i+12&&k<h.time.length;k++)if(h.wind_gusts_10m[k]>mx){mx=h.wind_gusts_10m[k];mt=k}
   const sea=W[h.time[i]];
 
-  fcNow={ws,wd};
+  fcNow={ws,wd,wg};
+  { const today=h.time[i].slice(0,10), cnt={}; let tmin=99,tmax=-99;
+    h.time.forEach((t,k)=>{ if(t.slice(0,10)!==today)return;
+      const tc=h.temperature_2m[k]; if(tc!=null){tmin=Math.min(tmin,tc);tmax=Math.max(tmax,tc)}
+      const hr=+t.slice(11,13), c=h.weather_code[k]; if(hr>=8&&hr<=20&&c!=null)cnt[c]=(cnt[c]||0)+1; });
+    let dc=null,best=0; for(const c in cnt){ if(cnt[c]>best||(cnt[c]===best&&+c>dc)){best=cnt[c];dc=+c} }
+    if(dc==null)dc=h.weather_code[i];
+    $('wx').innerHTML=`<div class="e">${icon(dc)}</div><div class="l">${wxDesc(dc)}</div>
+      <div class="t"><b>${r0(tmax)}°</b> / ${r0(tmin)}°</div>`; }
   $('fc').innerHTML=`
     <div class="dial">${rose(wd,col)}
       <div><div class="big" style="color:${col}">${r0(ws)}<small> ${L.kn}</small></div>
@@ -268,10 +287,12 @@ function renderSK(){
   const dTxt=dir!=null?`${arrow(norm(dir*DEG),c,26)}<span class="dir">${card(norm(dir*DEG))} ${r0(norm(dir*DEG))}°</span>`
             :(sk.awa!=null?`<span class="dir">AWA ${r0(Math.abs(sk.awa*DEG))}° ${sk.awa<0?(lang==='fr'?'bâbord':'port'):(lang==='fr'?'tribord':'stbd')}</span>`:'');
   const g=Math.max(...sk.hist.map(h=>h[1]));
-  const diff=fcNow&&fcNow.ws!=null?Math.round(kn-fcNow.ws):null;
+  const dW=fcNow&&fcNow.ws!=null?Math.round(kn-fcNow.ws):null, dG=fcNow&&fcNow.wg!=null?Math.round(g-fcNow.wg):null;
+  const fmt=d=>`<b style="color:${d>=5?'#f08a3c':'var(--sand)'}">${d>0?'+':''}${d}</b>`;
   $('meas').innerHTML=`<div class="mhead"><span class="dot on"></span>${L.meas}</div>
     <div class="mrow"><b style="color:${c}">${r0(kn)}<small> ${L.kn}</small></b>${dTxt}</div>
-    <div class="msub">${L.gust10} <b style="color:${wc(g)}">${r0(g)}</b>${diff!=null?` · ${L.vsfc} <b>${diff>0?'+':''}${diff}</b> ${L.kn}`:''}</div>`;
+    <div class="msub">${L.gust10} <b style="color:${wc(g)}">${r0(g)}</b> ${L.kn}${fcNow&&fcNow.wg!=null?` (${L.gustFc} ${r0(fcNow.wg)})`:''}</div>
+    ${dW!=null?`<div class="msub">${L.vsfc} : ${L.vsW} ${fmt(dW)} · ${L.vsG} ${fmt(dG)} ${L.kn}</div>`:''}`;
 }
 
 function setWindy(){
