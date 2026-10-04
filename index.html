@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Météo – Marannah</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--deep:#061428;--navy:#0a1f3a;--panel:#10294a;--line:#1f3d63;--gold:#d4a843;--sand:#f1e6c8;--mute:#8aa0bd}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--deep);color:var(--sand);font-family:Barlow,system-ui,sans-serif}
+body{display:grid;grid-template-rows:auto 1fr auto;height:100vh;overflow:hidden}
+.cond{font-family:'Barlow Condensed','Arial Narrow',sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:8px 14px;background:var(--navy);border-bottom:1px solid var(--line)}
+.brand{font:700 22px 'Barlow Condensed','Arial Narrow',sans-serif;color:var(--gold)}
+.seg{display:flex;border:1px solid var(--gold);border-radius:6px;overflow:hidden}
+.seg button,.btn{background:none;border:0;color:var(--sand);font:600 16px 'Barlow Condensed','Arial Narrow',sans-serif;padding:6px 12px;cursor:pointer}
+.seg button.on{background:var(--gold);color:var(--navy)}
+.btn{border:1px solid var(--line);border-radius:6px}
+.upd{margin-left:auto;color:var(--mute);font-size:14px;text-align:right}
+.upd.off{color:#ff9b6b}
+main{display:grid;grid-template-columns:minmax(300px,34%) 1fr;min-height:0}
+body.nomap main{grid-template-columns:1fr}
+body.nomap .windy{display:none}
+.now{padding:14px;display:flex;flex-direction:column;gap:12px;border-right:1px solid var(--line);overflow:auto}
+.dial{display:flex;align-items:center;gap:14px}
+.rose{width:150px;height:150px;flex:none}
+.big{font:700 76px/.9 'Barlow Condensed','Arial Narrow',sans-serif}
+.big small{font-size:24px;color:var(--mute);font-weight:600}
+.gust{font:600 26px 'Barlow Condensed','Arial Narrow',sans-serif}
+.dir{font:600 20px 'Barlow Condensed','Arial Narrow',sans-serif;color:var(--mute)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat{background:var(--panel);border-left:3px solid var(--line);border-radius:4px;padding:8px 10px}
+.stat b{display:block;font:600 26px 'Barlow Condensed','Arial Narrow',sans-serif}
+.stat span{font-size:13px;color:var(--mute)}
+.stat.alert{border-left-color:#ff7a45}
+.max{font-size:15px;color:var(--mute)}
+.max b{color:var(--sand);font:600 22px 'Barlow Condensed','Arial Narrow',sans-serif}
+.windy{position:relative;min-height:0}
+.windy iframe{width:100%;height:100%;border:0;display:block}
+.ov{position:absolute;top:8px;left:8px;background:rgba(10,31,58,.85)}
+footer{background:var(--navy);border-top:1px solid var(--line)}
+.strip{display:flex;overflow-x:auto;padding:6px 6px 2px}
+.col{flex:0 0 62px;text-align:center;font-family:'Barlow Condensed','Arial Narrow',sans-serif}
+.col.day{border-left:1px solid var(--gold)}
+.col .d{height:15px;font-size:13px;color:var(--gold);text-align:left;padding-left:4px;white-space:nowrap}
+.col .h{font-size:15px;color:var(--mute)}
+.col .ic{font-size:17px;height:22px}
+.bar{position:relative;height:64px;margin:2px 0}
+.bar i{position:absolute;bottom:0;left:50%;transform:translateX(-50%);border-radius:3px 3px 0 0}
+.bar .g{width:26px;border:1px dashed;border-bottom:0}
+.bar .w{width:18px}
+.col .v{font-size:19px;font-weight:700}
+.col .v small{font-size:14px;color:var(--mute);font-weight:600}
+.col .wv{font-size:14px;color:#7fc4e0}
+.src{font-size:11px;color:var(--mute);padding:2px 12px 6px}
+.msg{padding:30px;color:var(--mute);font-size:18px}
+@media (max-width:760px){main{grid-template-columns:1fr;grid-template-rows:auto 320px}.now{border-right:0}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Marannah</div>
+  <div class="seg" id="bases">
+    <button data-b="bonif">Bonifacio</button>
+    <button data-b="capte">La Capte</button>
+  </div>
+  <div class="upd" id="upd"></div>
+  <button class="btn" id="lang">EN</button>
+</header>
+
+<main>
+  <section class="now" id="now"><div class="msg" data-i="load"></div></section>
+  <section class="windy">
+    <iframe id="windy" title="Windy" loading="lazy"></iframe>
+    <div class="seg ov" id="ov">
+      <button data-o="wind" data-i="wind" class="on"></button>
+      <button data-o="waves" data-i="waves"></button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="strip" id="strip"></div>
+  <div class="src" data-i="src"></div>
+</footer>
+
+<script>
+/* ===== Réglages ===== */
+const BASES={
+  bonif:{lat:41.387,lon:9.160,seaLat:41.35,seaLon:9.12,zoom:9},
+  capte:{lat:43.065,lon:6.149,seaLat:43.05,seaLon:6.25,zoom:10}
+};
+const REFRESH_DATA_MIN=30, REFRESH_MAP_MIN=60, HOURS_AHEAD=54;
+
+const T={
+  fr:{now:"Maintenant",gust:"rafales",sea:"Mer",press:"Pression",air:"Air",rain:"Pluie 3 h",
+      max12:"Rafale max sur 12 h :",at:"à",upd:"Mis à jour",off:"Hors ligne · données de",
+      none:"Aucune donnée. Vérifiez le Wi-Fi du port.",load:"Chargement…",
+      rising:"en hausse",falling:"en baisse",steady:"stable",fast:"chute rapide",
+      wind:"Vent",waves:"Vagues",kn:"nds",
+      src:"Vent, pression : Météo-France AROME puis ARPEGE (Open-Meteo) · Mer : Open-Meteo Marine · Carte : Windy ECMWF",
+      card:["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"],loc:"fr-FR"},
+  en:{now:"Now",gust:"gusts",sea:"Sea",press:"Pressure",air:"Air",rain:"Rain 3 h",
+      max12:"Max gust next 12 h:",at:"at",upd:"Updated",off:"Offline · data from",
+      none:"No data. Check the marina Wi-Fi.",load:"Loading…",
+      rising:"rising",falling:"falling",steady:"steady",fast:"falling fast",
+      wind:"Wind",waves:"Waves",kn:"kn",
+      src:"Wind, pressure: Météo-France AROME then ARPEGE (Open-Meteo) · Sea: Open-Meteo Marine · Map: Windy ECMWF",
+      card:["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"],loc:"en-GB"}
+};
+
+/* ===== État ===== */
+const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},
+          set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+const qs=new URLSearchParams(location.search);
+const autoBase=()=>{const m=new Date().getMonth()+1;return (m>=6&&m<=9)?'capte':'bonif'};
+let base=BASES[qs.get('base')]?qs.get('base'):autoBase();
+let lang=ls.get('vf_lang')||'fr';
+let overlay='wind', data=null, offline=false;
+if(qs.get('map')==='0') document.body.classList.add('nomap');
+
+/* ===== Utilitaires ===== */
+const $=id=>document.getElementById(id);
+const r0=v=>v==null?'–':Math.round(v);
+const wc=k=>k<8?'#5fb3c9':k<14?'#6cc28a':k<20?'#d4a843':k<26?'#f08a3c':'#e5484d';
+const card=d=>T[lang].card[Math.round(d/22.5)%16];
+function parisParts(d){const o={};new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(d).forEach(p=>o[p.type]=p.value);return o}
+function nowKey(){const o=parisParts(new Date());return `${o.year}-${o.month}-${o.day}T${o.hour}:00`}
+function hhmm(ts){const o=parisParts(new Date(ts));return `${o.hour}:${o.minute}`}
+function icon(c){if(c==null)return'';if(c===0)return'☀️';if(c<=2)return'🌤️';if(c===3)return'☁️';if(c<=48)return'🌫️';if(c<=67)return'🌧️';if(c<=77)return'🌨️';if(c<=82)return'🌦️';return'⛈️'}
+function arrow(dir,col,s=20){return `<svg width="${s}" height="${s}" viewBox="-10 -10 20 20" style="transform:rotate(${dir+180}deg)"><path d="M0 -9 L6 7 L0 3 L-6 7Z" fill="${col}"/></svg>`}
+function rose(dir,col){
+  const L=T[lang].card;let t='';
+  for(let a=0;a<360;a+=30)t+=`<line x1="0" y1="-66" x2="0" y2="${a%90?-60:-55}" transform="rotate(${a})" stroke="#3a5a85" stroke-width="2"/>`;
+  return `<svg class="rose" viewBox="-70 -70 140 140">
+    <circle r="66" fill="none" stroke="#1f3d63" stroke-width="2"/>${t}
+    <g fill="#8aa0bd" font-family="Barlow Condensed,Arial Narrow" font-size="14" font-weight="600" text-anchor="middle" dominant-baseline="central">
+      <text y="-44">${L[0]}</text><text x="44">${L[4]}</text><text y="44">${L[8]}</text><text x="-44">${L[12]}</text></g>
+    <g transform="rotate(${dir+180})"><path d="M0 -60 L13 -30 L4 -34 L4 44 L-4 44 L-4 -34 L-13 -30Z" fill="${col}"/></g>
+    <circle r="5" fill="#061428" stroke="${col}" stroke-width="2"/></svg>`;
+}
+
+/* ===== Données ===== */
+async function getJSON(url){
+  const c=new AbortController();const to=setTimeout(()=>c.abort(),15000);
+  try{const r=await fetch(url,{signal:c.signal});if(!r.ok)throw new Error(r.status);return await r.json()}
+  finally{clearTimeout(to)}
+}
+async function load(){
+  const b=BASES[base], tz='&timezone=Europe%2FParis&past_days=1&forecast_days=3';
+  const fUrl=`https://api.open-meteo.com/v1/forecast?latitude=${b.lat}&longitude=${b.lon}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,precipitation,pressure_msl,weather_code&models=meteofrance_seamless&wind_speed_unit=kn${tz}`;
+  const mUrl=`https://marine-api.open-meteo.com/v1/marine?latitude=${b.seaLat}&longitude=${b.seaLon}&hourly=wave_height,wave_direction,wave_period${tz}`;
+  try{
+    const [f,m]=await Promise.all([getJSON(fUrl),getJSON(mUrl).catch(()=>null)]);
+    data={f,m,t:Date.now()};offline=false;ls.set('vf_wx_'+base,JSON.stringify(data));
+  }catch(e){
+    try{data=JSON.parse(ls.get('vf_wx_'+base))}catch(_){data=null}
+    offline=true;
+  }
+  render();
+}
+
+/* ===== Affichage ===== */
+function render(){
+  const L=T[lang];
+  if(!data||!data.f){$('now').innerHTML=`<div class="msg">${L.none}</div>`;$('strip').innerHTML='';$('upd').textContent='';return}
+  const h=data.f.hourly, W={};
+  if(data.m&&data.m.hourly)data.m.hourly.time.forEach((t,i)=>W[t]={h:data.m.hourly.wave_height[i],d:data.m.hourly.wave_direction[i],p:data.m.hourly.wave_period[i]});
+  const nk=nowKey();let i=h.time.findIndex(t=>t>=nk);if(i<0)i=h.time.length-1;
+
+  const ws=h.wind_speed_10m[i],wd=h.wind_direction_10m[i],wg=h.wind_gusts_10m[i],col=wc(ws);
+  const p=h.pressure_msl[i],p3=h.pressure_msl[i-3],dp=(p!=null&&p3!=null)?p-p3:0;
+  const trend=dp<=-3?L.fast:dp<=-1?L.falling:dp>=1?L.rising:L.steady;
+  const tr=dp<=-1?'↘':dp>=1?'↗':'→';
+  let rain=0;for(let k=i;k<i+3&&k<h.time.length;k++)rain+=h.precipitation[k]||0;
+  let mx=0,mt=i;for(let k=i;k<=i+12&&k<h.time.length;k++)if(h.wind_gusts_10m[k]>mx){mx=h.wind_gusts_10m[k];mt=k}
+  const sea=W[h.time[i]];
+
+  $('now').innerHTML=`
+    <div class="dial">${rose(wd,col)}
+      <div><div class="big" style="color:${col}">${r0(ws)}<small> ${L.kn}</small></div>
+      <div class="gust">${L.gust} ${r0(wg)}</div>
+      <div class="dir">${card(wd)} ${r0(wd)}°</div></div></div>
+    <div class="stats">
+      <div class="stat"><b>${sea&&sea.h!=null?sea.h.toFixed(1)+' m':'–'}</b><span>${L.sea}${sea&&sea.p?` · ${r0(sea.p)} s ${card(sea.d)}`:''}</span></div>
+      <div class="stat${dp<=-3?' alert':''}"><b>${r0(p)} ${tr}</b><span>${L.press} · ${trend}</span></div>
+      <div class="stat"><b>${r0(h.temperature_2m[i])}°</b><span>${L.air} ${icon(h.weather_code[i])}</span></div>
+      <div class="stat"><b>${rain.toFixed(1)} mm</b><span>${L.rain}</span></div>
+    </div>
+    <div class="max">${L.max12} <b style="color:${wc(mx)}">${r0(mx)} ${L.kn}</b> ${L.at} ${h.time[mt].slice(11,13)}h</div>`;
+
+  let html='',lastDay='';
+  for(let k=i;k<h.time.length&&k<=i+HOURS_AHEAD;k++){
+    const t=h.time[k],hr=+t.slice(11,13);
+    if(k!==i&&hr%3)continue;
+    const day=t.slice(0,10),nd=day!==lastDay;lastDay=day;
+    const [Y,M,D]=day.split('-').map(Number);
+    const dl=nd?new Date(Y,M-1,D).toLocaleDateString(L.loc,{weekday:'short',day:'numeric'}):'';
+    const s=h.wind_speed_10m[k],g=h.wind_gusts_10m[k],c=wc(s),w=W[t];
+    html+=`<div class="col${nd?' day':''}"><div class="d">${dl}</div><div class="h">${k===i?L.now:hr+'h'}</div>
+      <div class="ic">${icon(h.weather_code[k])}</div>${arrow(h.wind_direction_10m[k],c)}
+      <div class="bar"><i class="g" style="height:${Math.min(64,g*1.6)}px;border-color:${wc(g)}"></i><i class="w" style="height:${Math.min(64,s*1.6)}px;background:${c}"></i></div>
+      <div class="v">${r0(s)}<small>/${r0(g)}</small></div><div class="wv">${w&&w.h!=null?w.h.toFixed(1)+' m':''}</div></div>`;
+  }
+  $('strip').innerHTML=html;
+
+  const u=$('upd');
+  u.textContent=offline?`${L.off} ${hhmm(data.t)}`:`${L.upd} ${hhmm(data.t)}`;
+  u.classList.toggle('off',offline);
+}
+
+function setWindy(){
+  if(document.body.classList.contains('nomap'))return;
+  const b=BASES[base];
+  $('windy').src=`https://embed.windy.com/embed2.html?lat=${b.lat-0.08}&lon=${b.lon}&detailLat=${b.lat}&detailLon=${b.lon}&zoom=${b.zoom}&level=surface&overlay=${overlay}&product=ecmwf&menu=&message=true&marker=true&calendar=now&pressure=true&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=%C2%B0C&radarRange=-1&t=${Date.now()}`;
+}
+
+function applyLang(){
+  document.documentElement.lang=lang;
+  document.querySelectorAll('[data-i]').forEach(e=>e.textContent=T[lang][e.dataset.i]);
+  $('lang').textContent=lang==='fr'?'EN':'FR';
+  render();
+}
+function setBase(b){
+  base=b;document.querySelectorAll('#bases button').forEach(x=>x.classList.toggle('on',x.dataset.b===b));
+  data=null;try{data=JSON.parse(ls.get('vf_wx_'+b))}catch(e){}
+  render();setWindy();load();
+}
+
+/* ===== Événements & rafraîchissements ===== */
+$('bases').onclick=e=>{if(e.target.dataset.b)setBase(e.target.dataset.b)};
+$('ov').onclick=e=>{if(!e.target.dataset.o)return;overlay=e.target.dataset.o;
+  document.querySelectorAll('#ov button').forEach(x=>x.classList.toggle('on',x.dataset.o===overlay));setWindy()};
+$('lang').onclick=()=>{lang=lang==='fr'?'en':'fr';ls.set('vf_lang',lang);applyLang()};
+
+setInterval(load,REFRESH_DATA_MIN*60e3);
+setInterval(setWindy,REFRESH_MAP_MIN*60e3);
+setInterval(render,5*60e3);                       // avance la colonne "Maintenant" à chaque heure
+setInterval(()=>{const o=parisParts(new Date());  // rechargement complet chaque nuit vers 4 h
+  if(o.hour==='04'&&+o.minute<10)location.reload()},10*60e3);
+
+applyLang();setBase(base);
+</script>
+</body>
+</html>
