@@ -23,33 +23,35 @@ header{display:flex;align-items:center;gap:12px;padding:8px 14px;background:var(
 main{display:grid;grid-template-columns:minmax(300px,34%) 1fr;min-height:0}
 body.nomap main{grid-template-columns:1fr}
 body.nomap .windy{display:none}
-.now{padding:14px;display:flex;flex-direction:column;gap:12px;border-right:1px solid var(--line);overflow:auto}
+.now{padding:10px 12px;display:flex;flex-direction:column;gap:8px;border-right:1px solid var(--line);overflow:auto;scrollbar-width:none}
+.now::-webkit-scrollbar{display:none}
 .dial{display:flex;align-items:center;gap:14px}
-.rose{width:150px;height:150px;flex:none}
-.big{font:700 76px/.9 'Barlow Condensed','Arial Narrow',sans-serif}
+.rose{width:118px;height:118px;flex:none}
+.big{font:700 62px/.9 'Barlow Condensed','Arial Narrow',sans-serif}
 .big small{font-size:24px;color:var(--mute);font-weight:600}
-.gust{font:600 26px 'Barlow Condensed','Arial Narrow',sans-serif}
+.gust{font:600 23px 'Barlow Condensed','Arial Narrow',sans-serif}
 .dir{font:600 20px 'Barlow Condensed','Arial Narrow',sans-serif;color:var(--mute)}
-.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.stat{background:var(--panel);border-left:3px solid var(--line);border-radius:4px;padding:8px 10px}
-.stat b{display:block;font:600 26px 'Barlow Condensed','Arial Narrow',sans-serif}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.stat{background:var(--panel);border-left:3px solid var(--line);border-radius:4px;padding:4px 10px}
+.stat b{display:block;font:600 23px 'Barlow Condensed','Arial Narrow',sans-serif}
 .stat span{font-size:13px;color:var(--mute)}
 .stat.alert{border-left-color:#ff7a45}
 .max{font-size:15px;color:var(--mute)}
 .max b{color:var(--sand);font:600 22px 'Barlow Condensed','Arial Narrow',sans-serif}
-.meas{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.meas{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 10px}
 .mhead{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--mute)}
 .dot{width:9px;height:9px;border-radius:50%;background:#55657a}
 .dot.on{background:#6cc28a;box-shadow:0 0 6px #6cc28a}
 .mrow{display:flex;align-items:center;gap:10px;margin-top:2px}
-.mrow b{font:700 50px/1 'Barlow Condensed','Arial Narrow',sans-serif}
+.mrow b{font:700 44px/1 'Barlow Condensed','Arial Narrow',sans-serif}
 .mrow small{font:600 20px 'Barlow Condensed','Arial Narrow',sans-serif;color:var(--mute)}
 .msub{font-size:15px;color:var(--mute)}
 .msub b{color:var(--sand);font:600 20px 'Barlow Condensed','Arial Narrow',sans-serif}
 .toprow{display:flex;gap:8px}
 .toprow .meas{flex:1;min-width:0}
 .wx{flex:0 0 112px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 6px;text-align:center;display:flex;flex-direction:column;justify-content:center}
-.wx .e{font-size:52px;line-height:1.1}
+.wx .e{line-height:0}
+.wx .e svg{width:56px;height:56px}
 .wx .l{font-size:14px;margin-top:2px}
 .wx .t{font:600 17px 'Barlow Condensed','Arial Narrow',sans-serif;color:var(--mute)}
 .wx .t b{color:var(--sand)}
@@ -64,8 +66,8 @@ footer{background:var(--navy);border-top:1px solid var(--line)}
 .col.day{border-left:1px solid var(--gold)}
 .col .d{height:15px;font-size:13px;color:var(--gold);text-align:left;padding-left:4px;white-space:nowrap}
 .col .h{font-size:15px;color:var(--mute)}
-.col .ic{font-size:17px;height:22px}
-.bar{position:relative;height:64px;margin:2px 0}
+.col .ic{height:24px;line-height:0}
+.bar{position:relative;height:52px;margin:2px 0}
 .bar i{position:absolute;bottom:0;left:50%;transform:translateX(-50%);border-radius:3px 3px 0 0}
 .bar .g{width:26px;border:1px dashed;border-bottom:0}
 .bar .w{width:18px}
@@ -149,7 +151,26 @@ const card=d=>T[lang].card[Math.round(d/22.5)%16];
 function parisParts(d){const o={};new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Paris',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(d).forEach(p=>o[p.type]=p.value);return o}
 function nowKey(){const o=parisParts(new Date());return `${o.year}-${o.month}-${o.day}T${o.hour}:00`}
 function hhmm(ts){const o=parisParts(new Date(ts));return `${o.hour}:${o.minute}`}
-function icon(c){if(c==null)return'';if(c===0)return'☀️';if(c<=2)return'🌤️';if(c===3)return'☁️';if(c<=48)return'🌫️';if(c<=67)return'🌧️';if(c<=77)return'🌨️';if(c<=82)return'🌦️';return'⛈️'}
+function SUN(cx,cy,r){let o=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="#f2c14e"/>`;
+  for(let a=0;a<360;a+=45){const t=a*Math.PI/180,c=Math.cos(t),s=Math.sin(t);
+    o+=`<line x1="${(cx+c*(r+2.5)).toFixed(1)}" y1="${(cy+s*(r+2.5)).toFixed(1)}" x2="${(cx+c*(r+5)).toFixed(1)}" y2="${(cy+s*(r+5)).toFixed(1)}" stroke="#f2c14e" stroke-width="2" stroke-linecap="round"/>`}
+  return o}
+const MOON=(dx,dy)=>`<path transform="translate(${dx} ${dy})" d="M19 5a10 10 0 1 0 8 15A8 8 0 0 1 19 5z" fill="#e8dcb5"/>`;
+const CLOUD=(dx,dy,c='#c9d6e6')=>`<path transform="translate(${dx} ${dy})" d="M9 24h14a5 5 0 0 0 0-10a7 7 0 0 0-13.4-1.5A5.5 5.5 0 0 0 9 24z" fill="${c}"/>`;
+const DROPS=y=>[10,16,22].map(x=>`<line x1="${x}" y1="${y}" x2="${x-2}" y2="${y+5}" stroke="#5fb3e0" stroke-width="2" stroke-linecap="round"/>`).join('');
+function icon(c,hr=12){
+  if(c==null)return'';
+  const night=hr<7||hr>20; let g;
+  if(c===0)g=night?MOON(0,0):SUN(16,16,6);
+  else if(c<=2)g=(night?MOON(-6,-4):SUN(11,10,4.5))+CLOUD(3,4);
+  else if(c===3)g=CLOUD(0,2);
+  else if(c<=48)g=[11,16,21].map(y=>`<line x1="5" y1="${y}" x2="27" y2="${y}" stroke="#9fb0c6" stroke-width="2.5" stroke-linecap="round"/>`).join('');
+  else if(c<=67)g=CLOUD(0,-5)+DROPS(22);
+  else if(c<=77)g=CLOUD(0,-5)+[10,16,22].map(x=>`<circle cx="${x}" cy="25" r="1.8" fill="#eef4fb"/>`).join('');
+  else if(c<=82)g=(night?'':SUN(10,8,4))+CLOUD(3,-2)+DROPS(25);
+  else g=CLOUD(0,-5,'#8a99ad')+`<polygon points="17,18 11,26 15,26 12,32 21,23 17,23 20,18" fill="#f2c14e"/>`;
+  return `<svg width="24" height="24" viewBox="0 0 32 32">${g}</svg>`;
+}
 const WXD={fr:[[0,'Ciel clair'],[1,'Peu nuageux'],[2,'Éclaircies'],[3,'Couvert'],[48,'Brouillard'],[57,'Bruine'],[67,'Pluie'],[77,'Neige'],[82,'Averses'],[99,'Orage']],
            en:[[0,'Clear'],[1,'Mostly clear'],[2,'Partly cloudy'],[3,'Overcast'],[48,'Fog'],[57,'Drizzle'],[67,'Rain'],[77,'Snow'],[82,'Showers'],[99,'Thunderstorm']]};
 const wxDesc=c=>(WXD[lang].find(x=>c<=x[0])||['',''])[1];
@@ -218,7 +239,7 @@ function render(){
     <div class="stats">
       <div class="stat"><b>${sea&&sea.h!=null?sea.h.toFixed(1)+' m':'–'}</b><span>${L.sea}${sea&&sea.p?` · ${r0(sea.p)} s ${card(sea.d)}`:''}</span></div>
       <div class="stat${dp<=-3?' alert':''}"><b>${r0(p)} ${tr}</b><span>${L.press} · ${trend}</span></div>
-      <div class="stat"><b>${r0(h.temperature_2m[i])}°</b><span>${L.air} ${icon(h.weather_code[i])}</span></div>
+      <div class="stat"><b>${r0(h.temperature_2m[i])}°</b><span>${L.air}</span></div>
       <div class="stat"><b>${rain.toFixed(1)} mm</b><span>${L.rain}</span></div>
     </div>
     <div class="max">${L.max12} <b style="color:${wc(mx)}">${r0(mx)} ${L.kn}</b> ${L.at} ${h.time[mt].slice(11,13)}h</div>`;
@@ -232,8 +253,8 @@ function render(){
     const dl=nd?new Date(Y,M-1,D).toLocaleDateString(L.loc,{weekday:'short',day:'numeric'}):'';
     const s=h.wind_speed_10m[k],g=h.wind_gusts_10m[k],c=wc(s),w=W[t];
     html+=`<div class="col${nd?' day':''}"><div class="d">${dl}</div><div class="h">${k===i?L.now:hr+'h'}</div>
-      <div class="ic">${icon(h.weather_code[k])}</div>${arrow(h.wind_direction_10m[k],c)}
-      <div class="bar"><i class="g" style="height:${Math.min(64,g*1.6)}px;border-color:${wc(g)}"></i><i class="w" style="height:${Math.min(64,s*1.6)}px;background:${c}"></i></div>
+      <div class="ic">${icon(h.weather_code[k],hr)}</div>${arrow(h.wind_direction_10m[k],c)}
+      <div class="bar"><i class="g" style="height:${Math.min(52,g*1.3)}px;border-color:${wc(g)}"></i><i class="w" style="height:${Math.min(52,s*1.3)}px;background:${c}"></i></div>
       <div class="v">${r0(s)}<small>/${r0(g)}</small></div><div class="wv">${w&&w.h!=null?w.h.toFixed(1)+' m':''}</div></div>`;
   }
   $('strip').innerHTML=html;
